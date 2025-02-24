@@ -10,6 +10,11 @@ const couponSchema = new Schema<ICoupon>(
          uppercase: true,
          trim: true,
       },
+      shop: {
+         type: Schema.Types.ObjectId,
+         ref: 'Shop',
+         required: true,
+      },
       discountType: {
          type: String,
          enum: ['Flat', 'Percentage'],

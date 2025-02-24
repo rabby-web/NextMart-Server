@@ -13,11 +13,11 @@ import { IJwtPayload } from '../auth/auth.interface';
 
 // Function to register user
 const registerUser = async (userData: IUser) => {
-
    const session = await mongoose.startSession();
-   session.startTransaction();
 
    try {
+      session.startTransaction();
+
       if ([UserRole.ADMIN].includes(userData.role)) {
          throw new AppError(StatusCodes.NOT_ACCEPTABLE, 'Invalid role. Only User is allowed.');
       }
@@ -38,18 +38,19 @@ const registerUser = async (userData: IUser) => {
 
       await profile.save({ session });
 
-      // Commit the transaction
       await session.commitTransaction();
-      session.endSession();
 
       return await AuthService.loginUser({ email: createdUser.email, password: userData.password, clientInfo: userData.clientInfo });
    } catch (error) {
-      // Abort the transaction on error
-      await session.abortTransaction();
-      session.endSession();
+      if (session.inTransaction()) {
+         await session.abortTransaction();
+      }
       throw error;
+   } finally {
+      session.endSession();
    }
 };
+
 
 
 const getAllUser = async (query: Record<string, unknown>) => {

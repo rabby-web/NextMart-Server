@@ -51,11 +51,109 @@ const createProduct = async (
    return result;
 };
 
+// const getAllProduct = async (query: Record<string, unknown>) => {
+//    const { minPrice, maxPrice, ...pQuery } = query;
+
+//    const productQuery = new QueryBuilder(
+//       Product.find()
+//          .populate('category', 'name')
+//          .populate('shop', 'shopName')
+//          .populate('brand', 'name'),
+//       pQuery
+//    )
+//       .search(['name', 'description'])
+//       .filter()
+//       .sort()
+//       .paginate()
+//       .fields()
+//       .priceRange(Number(minPrice) || 0, Number(maxPrice) || Infinity);
+
+//    const products = await productQuery.modelQuery.lean();
+
+//    const meta = await productQuery.countTotal();
+
+//    const productIds = products.map((product: any) => product._id);
+
+//    const flashSales = await FlashSale.find({
+//       product: { $in: productIds },
+//       discountPercentage: { $gt: 0 },
+//    }).select('product discountPercentage');
+
+//    const flashSaleMap = flashSales.reduce((acc, { product, discountPercentage }) => {
+//       //@ts-ignore
+//       acc[product.toString()] = discountPercentage;
+//       return acc;
+//    }, {});
+
+//    const updatedProducts = products.map((product: any) => {
+//       //@ts-ignore
+//       const discountPercentage = flashSaleMap[product._id.toString()];
+//       if (discountPercentage) {
+//          product.offerPrice = product.price * (1 - discountPercentage / 100);
+//       } else {
+//          product.offerPrice = null;
+//       }
+//       return product;
+//    });
+
+//    return {
+//       meta,
+//       result: updatedProducts,
+//    };
+// };
+
+// Product.service.ts
+
 const getAllProduct = async (query: Record<string, unknown>) => {
-   const { minPrice, maxPrice, ...pQuery } = query;
+   const {
+      minPrice,
+      maxPrice,
+      categories,
+      brands,
+      inStock,
+      ratings,
+      ...pQuery
+   } = query;
+
+   // Build the filter object
+   const filter: Record<string, any> = {};
+
+   // Filter by categories
+   if (categories) {
+      const categoryArray = typeof categories === 'string'
+         ? categories.split(',')
+         : Array.isArray(categories)
+            ? categories
+            : [categories];
+      filter.category = { $in: categoryArray };
+   }
+
+
+   // Filter by brands
+   if (brands) {
+      const brandArray = typeof brands === 'string'
+         ? brands.split(',')
+         : Array.isArray(brands)
+            ? brands
+            : [brands]
+      filter.brand = { $in: brandArray };
+   }
+
+   // Filter by in stock/out of stock
+   if (inStock !== undefined) {
+      filter.stock = inStock === 'true' ? { $gt: 0 } : 0;
+   }
+
+   // Filter by ratings
+   if (ratings) {
+      const ratingArray = typeof ratings === 'string'
+         ? ratings.split(',')
+         : Array.isArray(ratings) ? ratings : [ratings];
+      filter.averageRating = { $in: ratingArray.map(Number) };
+   }
 
    const productQuery = new QueryBuilder(
-      Product.find()
+      Product.find(filter)
          .populate('category', 'name')
          .populate('shop', 'shopName')
          .populate('brand', 'name'),
@@ -72,6 +170,7 @@ const getAllProduct = async (query: Record<string, unknown>) => {
 
    const meta = await productQuery.countTotal();
 
+   // Get Flash Sale Discounts
    const productIds = products.map((product: any) => product._id);
 
    const flashSales = await FlashSale.find({
@@ -85,6 +184,7 @@ const getAllProduct = async (query: Record<string, unknown>) => {
       return acc;
    }, {});
 
+   // Add offer price to products
    const updatedProducts = products.map((product: any) => {
       //@ts-ignore
       const discountPercentage = flashSaleMap[product._id.toString()];

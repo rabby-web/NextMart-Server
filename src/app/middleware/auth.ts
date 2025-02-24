@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import jwt, { JwtPayload } from 'jsonwebtoken';
+import jwt, { JwtPayload, TokenExpiredError } from 'jsonwebtoken';
 import config from '../config';
 import { UserRole } from '../modules/user/user.interface';
 import AppError from '../errors/appError';
@@ -19,31 +19,45 @@ const auth = (...requiredRoles: UserRole[]) => {
             );
          }
 
-         const decoded = jwt.verify(
-            token,
-            config.jwt_access_secret as string
-         ) as JwtPayload;
+         try {
+            const decoded = jwt.verify(
+               token,
+               config.jwt_access_secret as string
+            ) as JwtPayload;
 
-         const { role, userId, email, iat } = decoded;
+            const { role, email } = decoded;
 
-         const user = await User.findOne({ email, role, isActive: true });
+            const user = await User.findOne({ email, role, isActive: true });
 
-         if (!user) {
-            throw new AppError(
-               StatusCodes.NOT_FOUND,
-               'This user is not found !'
+            if (!user) {
+               throw new AppError(
+                  StatusCodes.NOT_FOUND,
+                  'This user is not found!'
+               );
+            }
+
+            if (requiredRoles && !requiredRoles.includes(role)) {
+               throw new AppError(
+                  StatusCodes.UNAUTHORIZED,
+                  'You are not authorized!'
+               );
+            }
+
+            req.user = decoded as JwtPayload & { role: string };
+            next();
+         } catch (error) {
+            if (error instanceof TokenExpiredError) {
+               return next(
+                  new AppError(
+                     StatusCodes.UNAUTHORIZED,
+                     'Token has expired! Please login again.'
+                  )
+               );
+            }
+            return next(
+               new AppError(StatusCodes.UNAUTHORIZED, 'Invalid token!')
             );
          }
-
-         if (requiredRoles && !requiredRoles.includes(role)) {
-            throw new AppError(
-               StatusCodes.UNAUTHORIZED,
-               'You are not authorized!'
-            );
-         }
-
-         req.user = decoded as JwtPayload & { role: string };
-         next();
       }
    );
 };

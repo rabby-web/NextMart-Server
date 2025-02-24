@@ -8,7 +8,7 @@ import { updateCouponValidationSchema } from './coupon.validation';
 const router = Router();
 
 // Define routes
-router.post('/', auth(UserRole.ADMIN), couponController.createCoupon);
+router.post('/', auth(UserRole.USER), couponController.createCoupon);
 
 router.get('/', auth(UserRole.ADMIN), couponController.getAllCoupon);
 
