@@ -9,6 +9,8 @@ const loginUser = catchAsync(async (req, res) => {
   const result = await AuthService.loginUser(req.body);
   const { refreshToken, accessToken } = result;
 
+
+  // this is refresh token
   res.cookie("refreshToken", refreshToken, {
     secure: config.NODE_ENV === "production",
     httpOnly: true,
